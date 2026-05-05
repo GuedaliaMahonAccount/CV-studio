@@ -30,6 +30,12 @@ async function loadFromServer() {
     buildInterestEditor();
     
     console.log("Data loaded from server");
+    
+    // First-launch: if no template was ever chosen, show the template picker
+    const hasTemplate = data.layout && data.layout.template;
+    if (!hasTemplate) {
+      showTemplateModal('initial');
+    }
   } catch (err) {
     console.error("Error loading from server. Make sure 'npm start' is running.", err);
     // Fallback to local storage if server is down
@@ -111,7 +117,11 @@ function syncInputsFromData() {
   document.getElementById("h-loc").value = data.header.location || "";
   document.getElementById("h-linkedin").value = data.header.linkedin || "";
   document.getElementById("h-github").value = data.header.github || "";
+  updatePhotoPreview();
+  updateTemplateUI();
 }
+
+let pendingNewVersionName = null;
 
 function createNewVersion() {
   const name = prompt("Enter name for the new version:");
@@ -119,12 +129,9 @@ function createNewVersion() {
     if (name) alert("A version with this name already exists!");
     return;
   }
-  // Clone current data as template
-  allProfiles[name] = JSON.parse(JSON.stringify(data));
-  currentProfileId = name;
-  data = allProfiles[name];
-  updateVersionSelect();
-  switchVersion(name);
+  // Store the name and show template chooser
+  pendingNewVersionName = name;
+  showTemplateModal('newVersion');
 }
 
 function renameVersion() {
@@ -193,15 +200,33 @@ function render(shouldPush = true) {
   const h = data.header;
   const density = (data.layout && data.layout.density) || "tight";
   const fillHeight = data.layout && data.layout.fillHeight;
+  const template = (data.layout && data.layout.template) || "classic";
   
   const cvDoc = document.getElementById("cv-doc");
   cvDoc.className = `density-${density} ${fillHeight ? 'fill-height' : ''}`;
+  cvDoc.setAttribute('data-template', template);
   
   const l = data.layout || {};
   cvDoc.style.setProperty('--cv-font-size', (l.fontSize || 13) + 'px');
   cvDoc.style.setProperty('--cv-line-height', l.lineHeight || 1.1);
   cvDoc.style.setProperty('--cv-name-size', (l.nameSize || 2.8) + 'rem');
   
+  // Choose render method based on template
+  if (template === 'creative') {
+    renderCreativeTemplate(cvDoc, h);
+  } else if (template === 'bold') {
+    renderBoldTemplate(cvDoc, h);
+  } else {
+    renderStandardTemplate(cvDoc, h);
+  }
+  
+  if (shouldPush) pushToServer();
+  updatePreviewScale();
+  setTimeout(checkOverflow, 50);
+}
+
+// Standard layout (Classic, Executive, Minimal)
+function renderStandardTemplate(cvDoc, h) {
   cvDoc.innerHTML = `
     <div class="cv-header">
       <div class="cv-header-left">
@@ -221,10 +246,80 @@ function render(shouldPush = true) {
       <div class="cv-col-left">${renderExperience()}${renderEducation()}</div>
       <div class="cv-col-right">${renderSkills()}${renderProjects()}${renderLanguages()}${renderInterests()}</div>
     </div>`;
-  
-  if (shouldPush) pushToServer();
-  updatePreviewScale();
-  setTimeout(checkOverflow, 50);
+}
+
+// Creative template — sidebar with photo, unique layout
+function renderCreativeTemplate(cvDoc, h) {
+  const photoHtml = h.photo 
+    ? `<img class="creative-photo" src="${esc(h.photo)}" alt="Photo" onerror="this.style.display='none'">`
+    : `<div class="creative-photo-placeholder"><i class="fas fa-user"></i></div>`;
+
+  cvDoc.innerHTML = `
+    <div class="cv-body">
+      <div class="cv-creative-sidebar">
+        ${photoHtml}
+        <div class="creative-name">${esc(h.name)}</div>
+        <div class="creative-jobtitle">${esc(h.title)}</div>
+        
+        <div class="creative-section-title">Contact</div>
+        <div>
+          <div class="creative-contact-item"><i class="fas fa-envelope"></i> ${esc(h.email)}</div>
+          <div class="creative-contact-item"><i class="fas fa-phone"></i> ${esc(h.phone)}</div>
+          <div class="creative-contact-item"><i class="fas fa-map-marker-alt"></i> ${esc(h.location)}</div>
+          <div class="creative-contact-item"><i class="fab fa-linkedin"></i> <a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a></div>
+          <div class="creative-contact-item"><i class="fab fa-github"></i> <a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a></div>
+        </div>
+        
+        ${data.skills && data.skills.length ? `
+          <div class="creative-section-title">Skills</div>
+          <div>${data.skills.map(s => `<span class="creative-skill-badge">${esc(s)}</span>`).join('')}</div>
+        ` : ''}
+        
+        ${data.languages && data.languages.length ? `
+          <div class="creative-section-title">Languages</div>
+          <div>${data.languages.map(l => `<div class="creative-lang-item"><span class="creative-lang-name">${esc(l.name)}</span><span class="creative-lang-level">${esc(l.level)}</span></div>`).join('')}</div>
+        ` : ''}
+        
+        ${data.interests && data.interests.length ? `
+          <div class="creative-section-title">Interests</div>
+          <div>${data.interests.map(i => `<span class="creative-interest-badge">${esc(i)}</span>`).join('')}</div>
+        ` : ''}
+      </div>
+      <div class="cv-creative-main">
+        <div class="creative-summary">${esc(h.summary)}</div>
+        ${renderExperience()}
+        ${renderEducation()}
+        ${renderProjects()}
+      </div>
+    </div>`;
+}
+
+// Bold template — full-width red header with photo
+function renderBoldTemplate(cvDoc, h) {
+  const photoHtml = h.photo
+    ? `<img class="bold-photo" src="${esc(h.photo)}" alt="Photo" onerror="this.style.display='none'">`
+    : `<div class="bold-photo-placeholder"><i class="fas fa-user"></i></div>`;
+
+  cvDoc.innerHTML = `
+    <div class="cv-bold-header">
+      ${photoHtml}
+      <div class="bold-info">
+        <div class="bold-name">${esc(h.name)}</div>
+        <div class="bold-jobtitle">${esc(h.title)}</div>
+        <div class="bold-contact-row">
+          <div class="bold-contact-item"><i class="fas fa-envelope"></i> ${esc(h.email)}</div>
+          <div class="bold-contact-item"><i class="fas fa-phone"></i> ${esc(h.phone)}</div>
+          <div class="bold-contact-item"><i class="fas fa-map-marker-alt"></i> ${esc(h.location)}</div>
+          <div class="bold-contact-item"><i class="fab fa-linkedin"></i> <a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a></div>
+          <div class="bold-contact-item"><i class="fab fa-github"></i> <a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="bold-summary-bar">${esc(h.summary)}</div>
+    <div class="cv-body">
+      <div class="cv-col-left">${renderExperience()}${renderEducation()}</div>
+      <div class="cv-col-right">${renderSkills()}${renderProjects()}${renderLanguages()}${renderInterests()}</div>
+    </div>`;
 }
 
 function renderExperience() {
@@ -287,6 +382,7 @@ function syncHeaderFromInputs() {
   data.header.location = document.getElementById("h-loc").value;
   data.header.linkedin = document.getElementById("h-linkedin").value;
   data.header.github = document.getElementById("h-github").value;
+  // photo is set by uploadPhoto/removePhoto, not by input
 }
 
 function buildExpEditor() {
@@ -552,3 +648,146 @@ function checkOverflow() {
 
 // Start
 loadFromServer();
+
+// ===================================================
+// TEMPLATE SYSTEM
+// ===================================================
+
+function setTemplate(tpl) {
+  if (!data.layout) data.layout = { density: "tight" };
+  data.layout.template = tpl;
+  updateTemplateUI();
+  render();
+}
+
+function updateTemplateUI() {
+  const tpl = (data.layout && data.layout.template) || "classic";
+  document.querySelectorAll(".template-card").forEach(card => {
+    card.classList.toggle("active", card.getAttribute("data-tpl") === tpl);
+  });
+}
+
+function updatePhotoPreview() {
+  const container = document.getElementById("photo-preview");
+  if (!container) return;
+  const photo = data.header && data.header.photo;
+  const removeBtn = document.getElementById("photo-remove-btn");
+  if (photo) {
+    container.innerHTML = `<img class="photo-preview-img" src="${esc(photo)}" alt="Preview" onerror="this.parentElement.innerHTML='<div class=\'photo-preview-placeholder\'><i class=\'fas fa-user\'></i></div>'">`;
+    if (removeBtn) removeBtn.style.display = 'flex';
+  } else {
+    container.innerHTML = `<div class="photo-preview-placeholder"><i class="fas fa-user"></i></div>`;
+    if (removeBtn) removeBtn.style.display = 'none';
+  }
+}
+
+async function uploadPhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Validate file size (5 MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Photo must be smaller than 5 MB');
+    event.target.value = '';
+    return;
+  }
+  
+  const formData = new FormData();
+  formData.append('photo', file);
+  
+  try {
+    const res = await fetch('/api/upload-photo', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (result.url) {
+      // Delete old photo if it was an uploaded one
+      if (data.header.photo && data.header.photo.startsWith('/uploads/')) {
+        fetch('/api/photo', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: data.header.photo })
+        }).catch(() => {});
+      }
+      data.header.photo = result.url;
+      updatePhotoPreview();
+      render();
+    }
+  } catch (err) {
+    console.error('Upload failed:', err);
+    alert('Failed to upload photo. Make sure the server is running.');
+  }
+  
+  // Reset file input so same file can be re-selected
+  event.target.value = '';
+}
+
+async function removePhoto() {
+  if (!data.header.photo) return;
+  
+  // Delete from server if it's an uploaded file
+  if (data.header.photo.startsWith('/uploads/')) {
+    try {
+      await fetch('/api/photo', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: data.header.photo })
+      });
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  }
+  
+  data.header.photo = '';
+  updatePhotoPreview();
+  render();
+}
+
+// ===================================================
+// TEMPLATE CHOOSER MODAL
+// ===================================================
+
+let templateModalContext = null; // 'initial' | 'newVersion'
+
+function showTemplateModal(context) {
+  templateModalContext = context;
+  const modal = document.getElementById('template-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+function hideTemplateModal() {
+  const modal = document.getElementById('template-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  templateModalContext = null;
+}
+
+function selectTemplateFromModal(tpl) {
+  if (templateModalContext === 'newVersion' && pendingNewVersionName) {
+    // Create the new version by cloning current data
+    const name = pendingNewVersionName;
+    allProfiles[name] = JSON.parse(JSON.stringify(data));
+    currentProfileId = name;
+    data = allProfiles[name];
+    
+    // Apply the chosen template
+    if (!data.layout) data.layout = { density: 'tight' };
+    data.layout.template = tpl;
+    
+    updateVersionSelect();
+    hideTemplateModal();
+    switchVersion(name);
+    pendingNewVersionName = null;
+  } else {
+    // Initial launch or direct pick: just set template on current data
+    if (!data.layout) data.layout = { density: 'tight' };
+    data.layout.template = tpl;
+    hideTemplateModal();
+    updateTemplateUI();
+    render();
+  }
+}
