@@ -1,0 +1,84 @@
+{
+  "currentProfileId": "Software Engineer",
+  "allProfiles": {
+    "Software Engineer": {
+      "header": {
+        "name": "John Doe",
+        "title": "Fullstack Developer",
+        "summary": "Experienced Software Engineer with a passion for building clean, efficient, and scalable applications. Proficient in modern web technologies and agile methodologies.",
+        "email": "john.doe@example.com",
+        "phone": "+1 (555) 000-0000",
+        "location": "New York, USA",
+        "linkedin": "linkedin.com/in/johndoe",
+        "github": "github.com/johndoe"
+      },
+      "experience": [
+        {
+          "title": "Senior Developer",
+          "company": "Tech Corp",
+          "dates": "Jan 2022 – Present",
+          "location": "Remote",
+          "description": "Leading the frontend team to build modern UI components.",
+          "bullets": [
+            "Architected a reusable component library using React and TypeScript.",
+            "Optimized application performance, reducing load time by 40%.",
+            "Mentored junior developers and conducted code reviews."
+          ],
+          "contact": ""
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "State University",
+          "dates": "2018 – 2022",
+          "location": "New York, USA",
+          "details": "GPA 3.9/4.0"
+        }
+      ],
+      "skills": [
+        "JavaScript",
+        "React",
+        "Node.js",
+        "Express",
+        "MongoDB",
+        "CSS",
+        "HTML5",
+        "Git"
+      ],
+      "projects": [
+        {
+          "name": "Portfolio Website",
+          "dates": "2023",
+          "url": "johndoe.dev",
+          "bullets": [
+            "Personal portfolio built with React and Tailwind CSS.",
+            "Showcases projects and professional experience."
+          ]
+        }
+      ],
+      "languages": [
+        {
+          "name": "English",
+          "level": "Native"
+        },
+        {
+          "name": "French",
+          "level": "Conversational"
+        }
+      ],
+      "interests": [
+        "Open Source",
+        "Hiking",
+        "Photography"
+      ],
+      "layout": {
+        "density": "comfortable",
+        "fillHeight": false,
+        "fontSize": 14,
+        "lineHeight": 1.2,
+        "nameSize": 3.0
+      }
+    }
+  }
+}

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CV Studio – Guedalia Sebbah</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- ========== MOBILE TOPBAR ========== -->
+  <div id="mobile-topbar">
+    <div class="mob-logo"><i class="fas fa-file-alt"></i> CV Studio</div>
+    <div class="mob-actions">
+      <button class="mob-btn" id="mob-edit-btn" onclick="mobileShowEditor()"><i class="fas fa-pen"></i> Edit</button>
+      <button class="mob-btn" id="mob-preview-btn" onclick="mobileShowPreview()"><i class="fas fa-eye"></i>
+        Preview</button>
+    </div>
+  </div>
+
+  <!-- ========== EDITOR SIDEBAR ========== -->
+  <aside id="editor-sidebar">
+
+    <!-- Top brand bar -->
+    <div class="sidebar-brand">
+      <div class="brand-mark">
+        <div class="brand-icon"><i class="fas fa-file-alt"></i></div>
+        <div>
+          <div class="brand-title">CV Studio</div>
+          <div class="brand-sub">Visual Resume Builder</div>
+        </div>
+      </div>
+      <button class="mob-close-btn" onclick="mobileShowPreview()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Version manager -->
+    <div class="version-bar">
+      <div class="version-label">VERSION</div>
+      <div class="version-row">
+        <select id="version-select" onchange="switchVersion(this.value)"></select>
+        <button class="vbtn" onclick="resetToDefault()" title="Reset"><i class="fas fa-undo"></i></button>
+        <button class="vbtn" onclick="renameVersion()" title="Rename"><i class="fas fa-pen"></i></button>
+        <button class="vbtn" onclick="duplicateVersion()" title="Duplicate"><i class="fas fa-clone"></i></button>
+        <button class="vbtn danger" onclick="deleteVersion()" title="Delete"><i class="fas fa-trash"></i></button>
+        <button class="vbtn create" onclick="createNewVersion()" title="New Version"><i
+            class="fas fa-plus"></i></button>
+      </div>
+    </div>
+
+    <!-- Tab navigation -->
+    <nav class="tab-nav">
+      <button class="tnav active" onclick="switchTab('header')" data-tab="header">
+        <i class="fas fa-user"></i><span>Profile</span>
+      </button>
+      <button class="tnav" onclick="switchTab('experience')" data-tab="experience">
+        <i class="fas fa-briefcase"></i><span>Work</span>
+      </button>
+      <button class="tnav" onclick="switchTab('education')" data-tab="education">
+        <i class="fas fa-graduation-cap"></i><span>Edu</span>
+      </button>
+      <button class="tnav" onclick="switchTab('skills')" data-tab="skills">
+        <i class="fas fa-code"></i><span>Skills</span>
+      </button>
+      <button class="tnav" onclick="switchTab('projects')" data-tab="projects">
+        <i class="fas fa-rocket"></i><span>Projects</span>
+      </button>
+      <button class="tnav" onclick="switchTab('languages')" data-tab="languages">
+        <i class="fas fa-globe"></i><span>Lang</span>
+      </button>
+      <button class="tnav" onclick="switchTab('interests')" data-tab="interests">
+        <i class="fas fa-heart"></i><span>Interests</span>
+      </button>
+      <button class="tnav" onclick="switchTab('layout')" data-tab="layout">
+        <i class="fas fa-layer-group"></i><span>Layout</span>
+      </button>
+    </nav>
+
+    <!-- Editor body -->
+    <div class="editor-body">
+
+      <!-- ===== HEADER TAB ===== -->
+      <div id="tab-header" class="tab-panel active">
+        <div class="panel-section-head">Identity</div>
+        <div class="fg"><label>Full Name</label>
+          <input id="h-name" value="Guedalia Sebbah" oninput="render()">
+        </div>
+        <div class="fg"><label>Job Title</label>
+          <input id="h-title" value="Fullstack, Mobile &amp; AI Developer" oninput="render()">
+        </div>
+        <div class="fg"><label>Summary</label>
+          <textarea id="h-summary" rows="5"
+            oninput="render()">Fullstack, Mobile, and AI Developer with experience in building scalable, user-focused applications. Skilled in React Native, Flutter, Node.js, Express, MongoDB, and AI development. Involved in AI research for PTSD detection and hackathons for innovative tech solutions. Quick learner with a passion for problem-solving and performance optimization.</textarea>
+        </div>
+        <div class="panel-section-head">Contact</div>
+        <div class="fg-grid">
+          <div class="fg"><label>Email</label><input id="h-email" value="guedalia.sebbah@gmail.com" oninput="render()">
+          </div>
+          <div class="fg"><label>Phone</label><input id="h-phone" value="0584224416" oninput="render()"></div>
+        </div>
+        <div class="fg"><label>Location</label><input id="h-loc" value="Jerusalem, Israel" oninput="render()"></div>
+        <div class="fg"><label>LinkedIn</label><input id="h-linkedin" value="linkedin.com/in/guedalia-sebbah"
+            oninput="render()"></div>
+        <div class="fg"><label>GitHub</label><input id="h-github" value="github.com/GuedaliaMahonAccount"
+            oninput="render()"></div>
+      </div>
+
+      <!-- ===== EXPERIENCE TAB ===== -->
+      <div id="tab-experience" class="tab-panel">
+        <div id="exp-list"></div>
+        <button class="add-btn" onclick="addExp()"><i class="fas fa-plus-circle"></i> Add Experience</button>
+      </div>
+
+      <!-- ===== EDUCATION TAB ===== -->
+      <div id="tab-education" class="tab-panel">
+        <div id="edu-list"></div>
+        <button class="add-btn" onclick="addEdu()"><i class="fas fa-plus-circle"></i> Add Education</button>
+      </div>
+
+      <!-- ===== SKILLS TAB ===== -->
+      <div id="tab-skills" class="tab-panel">
+        <div class="panel-section-head">Technical Skills</div>
+        <div class="skills-editor" id="skills-tags"></div>
+        <div class="skill-add-row">
+          <input type="text" id="new-skill-input" placeholder="Type a skill and press Enter..."
+            onkeydown="if(event.key==='Enter')addSkill()">
+          <button onclick="addSkill()"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+
+      <!-- ===== PROJECTS TAB ===== -->
+      <div id="tab-projects" class="tab-panel">
+        <div id="proj-list"></div>
+        <button class="add-btn" onclick="addProj()"><i class="fas fa-plus-circle"></i> Add Project</button>
+      </div>
+
+      <!-- ===== LANGUAGES TAB ===== -->
+      <div id="tab-languages" class="tab-panel">
+        <div id="lang-list"></div>
+        <button class="add-btn" onclick="addLang()"><i class="fas fa-plus-circle"></i> Add Language</button>
+      </div>
+
+      <!-- ===== LAYOUT TAB ===== -->
+      <div id="tab-layout" class="tab-panel">
+        <div class="panel-section-head">Typography</div>
+        <div class="density-box">
+          <div class="fg">
+            <label class="slider-label"><span>Base Font Size</span> <span id="val-font">13px</span></label>
+            <input type="range" id="slider-font" min="10" max="16" step="0.5" value="13"
+              oninput="updateLayoutSetting('fontSize', this.value)">
+          </div>
+          <div class="fg">
+            <label class="slider-label"><span>Line Spacing</span> <span id="val-line">1.1</span></label>
+            <input type="range" id="slider-line" min="1.1" max="1.8" step="0.05" value="1.1"
+              oninput="updateLayoutSetting('lineHeight', this.value)">
+          </div>
+          <div class="fg">
+            <label class="slider-label"><span>Name Size</span> <span id="val-name">2.8rem</span></label>
+            <input type="range" id="slider-name" min="1.8" max="3.5" step="0.1" value="2.8"
+              oninput="updateLayoutSetting('nameSize', this.value)">
+          </div>
+        </div>
+
+        <div class="panel-section-head">Page Density</div>
+        <div class="density-box">
+          <p class="panel-hint">Presets for overall spacing.</p>
+          <div class="density-row">
+            <button class="density-btn active" id="d-tight" onclick="setDensity('tight')">
+              <i class="fas fa-compress-alt"></i>
+              <span>Tight</span>
+            </button>
+            <button class="density-btn" id="d-normal" onclick="setDensity('normal')">
+              <i class="fas fa-arrows-alt-v"></i>
+              <span>Normal</span>
+            </button>
+            <button class="density-btn" id="d-loose" onclick="setDensity('loose')">
+              <i class="fas fa-expand-alt"></i>
+              <span>Loose</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-section-head">Section Order</div>
+        <div class="fg-check">
+          <label class="check-label">
+            <input type="checkbox" id="fill-height-check" onchange="toggleFillHeight()">
+            <span>Auto-fill page height</span>
+            
+          </label>
+        </div>
+        <p class="panel-hint">Distribute sections to fill the entire column height if the page is not full.</p>
+
+        <p class="panel-hint mt-10">Coming soon: Drag and drop to reorder sections.</p>
+      </div>
+
+      <!-- ===== INTERESTS TAB ===== -->
+      <div id="tab-interests" class="tab-panel">
+        <div class="panel-section-head">Interests & Hobbies</div>
+        <div class="skills-editor" id="interest-tags"></div>
+        <div class="skill-add-row">
+          <input type="text" id="new-interest-input" placeholder="Add an interest..."
+            onkeydown="if(event.key==='Enter')addInterest()">
+          <button onclick="addInterest()"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom action bar -->
+    <div class="editor-actions">
+      <button class="act-btn ghost" onclick="document.getElementById('load-file').click()">
+        <i class="fas fa-upload"></i><span>Load</span>
+      </button>
+      <button class="act-btn ghost" onclick="saveData()">
+        <i class="fas fa-download"></i><span>JSON</span>
+      </button>
+      <button class="act-btn primary" onclick="downloadPDF()">
+        <i class="fas fa-file-pdf"></i><span>Export PDF</span>
+      </button>
+      <input type="file" id="load-file" accept=".json" style="display:none" onchange="loadJSON(event)">
+    </div>
+  </aside>
+
+  <!-- ========== PREVIEW PANE ========== -->
+  <main id="preview-pane">
+    <div class="preview-toolbar">
+      <span class="preview-label"><i class="fas fa-eye"></i> Live Preview</span>
+      <span class="preview-hint">A4 · 794 × 1123 px</span>
+    </div>
+    <div class="preview-scroll">
+      <div id="cv-doc"></div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
