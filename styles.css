@@ -486,8 +486,18 @@ body { flex-direction: row; }
   font-size: 0.76rem;
   color: rgba(255,255,255,0.85);
   transition: background 0.15s;
+  cursor: grab;
+  user-select: none;
 }
 .skill-tag-edit:hover { background: rgba(42,138,138,0.22); }
+.skill-tag-edit.dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+.skill-tag-edit.drop-target {
+  outline: 1px dashed rgba(42,138,138,0.85);
+  outline-offset: 1px;
+}
 .skill-tag-edit button {
   background: none;
   border: none;

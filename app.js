@@ -516,7 +516,14 @@ function addInterest() {
   const v = inp.value.trim(); if (!v) return;
   data.interests.push(v); inp.value = ""; render(); buildInterestEditor();
 }
+    tag.draggable = true;
+    tag.dataset.index = i;
 
+    tag.addEventListener("dragstart", onSkillDragStart);
+    tag.addEventListener("dragend", onSkillDragEnd);
+    tag.addEventListener("dragover", onSkillDragOver);
+    tag.addEventListener("dragleave", onSkillDragLeave);
+    tag.addEventListener("drop", onSkillDrop);
 // ===================================================
 // UTILS
 // ===================================================
@@ -526,6 +533,49 @@ function moveItem(arr, idx, dir) {
   const n = idx + dir; if (n < 0 || n >= arr.length) return;
   [arr[idx], arr[n]] = [arr[n], arr[idx]];
   render(); buildExpEditor(); buildEduEditor(); buildProjEditor(); buildLangEditor();
+let draggedSkillIndex = null;
+
+function onSkillDragStart(event) {
+  draggedSkillIndex = Number(event.currentTarget.dataset.index);
+  event.currentTarget.classList.add("dragging");
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(draggedSkillIndex));
+  }
+}
+
+function onSkillDragEnd(event) {
+  event.currentTarget.classList.remove("dragging");
+  document.querySelectorAll(".skill-tag-edit.drop-target").forEach(el => {
+    el.classList.remove("drop-target");
+  });
+  draggedSkillIndex = null;
+}
+
+function onSkillDragOver(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add("drop-target");
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+}
+
+function onSkillDragLeave(event) {
+  event.currentTarget.classList.remove("drop-target");
+}
+
+function onSkillDrop(event) {
+  event.preventDefault();
+  const target = event.currentTarget;
+  target.classList.remove("drop-target");
+  const targetIndex = Number(target.dataset.index);
+  if (!Number.isInteger(draggedSkillIndex) || !Number.isInteger(targetIndex) || draggedSkillIndex === targetIndex) return;
+  const [item] = data.skills.splice(draggedSkillIndex, 1);
+  data.skills.splice(targetIndex, 0, item);
+  render();
+  buildSkillsEditor();
+}
+
 }
 
 function switchTab(name) {
