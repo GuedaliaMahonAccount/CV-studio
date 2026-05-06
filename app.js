@@ -6,6 +6,8 @@ const API_URL = '/api/data';
 let allProfiles = {};
 let currentProfileId = "";
 let data = {};
+const FE_LOG_PREFIX = "[CV Studio FE]";
+const JSON_MIME_TYPES = new Set(['application/json', 'text/json']);
 
 async function loadFromServer() {
   try {
@@ -72,6 +74,9 @@ function loadFromLocalStorage() {
     allProfiles = JSON.parse(saved);
     currentProfileId = savedId || Object.keys(allProfiles)[0];
     data = allProfiles[currentProfileId];
+    updateVersionSelect();
+    syncInputsFromData();
+    updateDensityUI();
     render(false);
   }
 }
@@ -184,32 +189,97 @@ function resetToDefault() {
 // RENDER CV
 // ===================================================
 
-const SKILL_PALETTE = ["#2a8a8a", "#1e6666", "#3a7a7a", "#235555"];
+const LAYOUT_COLOR_PRESETS = [
+  { id: "classic-teal", primary: "#2a8a8a", secondary: "#1e6666" },
+  { id: "executive-gold", primary: "#c9a84c", secondary: "#1a2744" },
+  { id: "creative-violet", primary: "#7c3aed", secondary: "#5b21b6" },
+  { id: "bold-coral", primary: "#e74c3c", secondary: "#c0392b" },
+  { id: "minimal-slate", primary: "#555555", secondary: "#333333" }
+];
+const DEFAULT_COLOR_PRESET = "classic-teal";
+const SKILL_PALETTE_BY_PRESET = {
+  "classic-teal": ["#1e6666", "#2a8a8a", "#235555", "#3a7a7a", "#2f6f6f"],
+  "executive-gold": ["#1a2744", "#273657", "#34456a", "#6f561f", "#8a6b29"],
+  "creative-violet": ["#5b21b6", "#6d28d9", "#7c3aed", "#4c1d95", "#6b21a8"],
+  "bold-coral": ["#c0392b", "#a93226", "#b53e31", "#e74c3c", "#9f2b22"],
+  "minimal-slate": ["#2f2f2f", "#3a3a3a", "#444444", "#505050", "#5b5b5b"]
+};
+
+function getSkillPalette() {
+  const presetId = getValidColorPresetId(data.layout || {});
+  return SKILL_PALETTE_BY_PRESET[presetId] || SKILL_PALETTE_BY_PRESET[DEFAULT_COLOR_PRESET];
+}
 
 function skillColor(s) {
+  const palette = getSkillPalette();
   let hash = 0;
   for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
-  return SKILL_PALETTE[Math.abs(hash) % SKILL_PALETTE.length];
+  return palette[Math.abs(hash) % palette.length];
 }
 
 function skillTextColor(s) { return "#ffffff"; }
 function esc(s) { return (s || "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function hasText(v) { return !!(v && v.toString().trim()); }
+function ensureHref(url) {
+  const raw = (url || "").trim();
+  if (!raw) return "#";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+function ensureLayoutData() {
+  if (!data.layout) data.layout = { density: "tight" };
+  return data.layout;
+}
+
+function getColorPresetById(presetId) {
+  return LAYOUT_COLOR_PRESETS.find(preset => preset.id === presetId) || null;
+}
+
+function getValidColorPresetId(layout) {
+  if (layout && getColorPresetById(layout.colorPreset)) return layout.colorPreset;
+  return DEFAULT_COLOR_PRESET;
+}
+
+function getResolvedLayoutColors(layout) {
+  const presetId = getValidColorPresetId(layout);
+  const preset = getColorPresetById(presetId) || LAYOUT_COLOR_PRESETS[0];
+  if (layout && layout.colorPreset !== presetId) layout.colorPreset = presetId;
+  return {
+    presetId,
+    primary: preset.primary,
+    secondary: preset.secondary
+  };
+}
+
+function updateColorPaletteUI() {
+  const layout = data.layout || {};
+  const activePreset = getValidColorPresetId(layout);
+  if (layout.colorPreset !== activePreset) layout.colorPreset = activePreset;
+  document.querySelectorAll(".color-palette-btn").forEach(btn => {
+    const isActive = btn.id === `palette-${activePreset}`;
+    btn.classList.toggle("active", isActive);
+  });
+}
 
 function render(shouldPush = true) {
   syncHeaderFromInputs();
   const h = data.header;
-  const density = (data.layout && data.layout.density) || "tight";
-  const fillHeight = data.layout && data.layout.fillHeight;
-  const template = (data.layout && data.layout.template) || "classic";
+  const layout = data.layout || {};
+  const density = layout.density || "tight";
+  const fillHeight = layout.fillHeight;
+  const template = layout.template || "classic";
+  const colors = getResolvedLayoutColors(layout);
   
   const cvDoc = document.getElementById("cv-doc");
   cvDoc.className = `density-${density} ${fillHeight ? 'fill-height' : ''}`;
   cvDoc.setAttribute('data-template', template);
+  cvDoc.style.setProperty('--cv-primary', colors.primary);
+  cvDoc.style.setProperty('--cv-secondary', colors.secondary);
   
-  const l = data.layout || {};
-  cvDoc.style.setProperty('--cv-font-size', (l.fontSize || 13) + 'px');
-  cvDoc.style.setProperty('--cv-line-height', l.lineHeight || 1.1);
-  cvDoc.style.setProperty('--cv-name-size', (l.nameSize || 2.8) + 'rem');
+  cvDoc.style.setProperty('--cv-font-size', (layout.fontSize || 13) + 'px');
+  cvDoc.style.setProperty('--cv-line-height', layout.lineHeight || 1.1);
+  cvDoc.style.setProperty('--cv-name-size', (layout.nameSize || 2.8) + 'rem');
   
   // Choose render method based on template
   if (template === 'creative') {
@@ -238,8 +308,8 @@ function renderStandardTemplate(cvDoc, h) {
         <div class="cv-contact-item"><span>${esc(h.email)}</span><i class="fas fa-envelope"></i></div>
         <div class="cv-contact-item"><span>${esc(h.phone)}</span><i class="fas fa-phone"></i></div>
         <div class="cv-contact-item"><span>${esc(h.location)}</span><i class="fas fa-map-marker-alt"></i></div>
-        <div class="cv-contact-item"><a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a><i class="fab fa-linkedin"></i></div>
-        <div class="cv-contact-item"><a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a><i class="fab fa-github"></i></div>
+        ${hasText(h.linkedin) ? `<div class="cv-contact-item"><a href="${esc(ensureHref(h.linkedin))}" target="_blank">LinkedIn</a><i class="fab fa-linkedin"></i></div>` : ""}
+        ${hasText(h.github) ? `<div class="cv-contact-item"><a href="${esc(ensureHref(h.github))}" target="_blank">GitHub</a><i class="fab fa-github"></i></div>` : ""}
       </div>
     </div>
     <div class="cv-body">
@@ -266,13 +336,13 @@ function renderCreativeTemplate(cvDoc, h) {
           <div class="creative-contact-item"><i class="fas fa-envelope"></i> ${esc(h.email)}</div>
           <div class="creative-contact-item"><i class="fas fa-phone"></i> ${esc(h.phone)}</div>
           <div class="creative-contact-item"><i class="fas fa-map-marker-alt"></i> ${esc(h.location)}</div>
-          <div class="creative-contact-item"><i class="fab fa-linkedin"></i> <a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a></div>
-          <div class="creative-contact-item"><i class="fab fa-github"></i> <a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a></div>
+          ${hasText(h.linkedin) ? `<div class="creative-contact-item"><i class="fab fa-linkedin"></i> <a href="${esc(ensureHref(h.linkedin))}" target="_blank">LinkedIn</a></div>` : ""}
+          ${hasText(h.github) ? `<div class="creative-contact-item"><i class="fab fa-github"></i> <a href="${esc(ensureHref(h.github))}" target="_blank">GitHub</a></div>` : ""}
         </div>
         
         ${data.skills && data.skills.length ? `
           <div class="creative-section-title">Skills</div>
-          <div>${data.skills.map(s => `<span class="creative-skill-badge">${esc(s)}</span>`).join('')}</div>
+          <div>${data.skills.map(s => `<span class="creative-skill-badge" style="background:${skillColor(s)};color:${skillTextColor(s)}">${esc(s)}</span>`).join('')}</div>
         ` : ''}
         
         ${data.languages && data.languages.length ? `
@@ -310,8 +380,8 @@ function renderBoldTemplate(cvDoc, h) {
           <div class="bold-contact-item"><i class="fas fa-envelope"></i> ${esc(h.email)}</div>
           <div class="bold-contact-item"><i class="fas fa-phone"></i> ${esc(h.phone)}</div>
           <div class="bold-contact-item"><i class="fas fa-map-marker-alt"></i> ${esc(h.location)}</div>
-          <div class="bold-contact-item"><i class="fab fa-linkedin"></i> <a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a></div>
-          <div class="bold-contact-item"><i class="fab fa-github"></i> <a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a></div>
+          ${hasText(h.linkedin) ? `<div class="bold-contact-item"><i class="fab fa-linkedin"></i> <a href="${esc(ensureHref(h.linkedin))}" target="_blank">LinkedIn</a></div>` : ""}
+          ${hasText(h.github) ? `<div class="bold-contact-item"><i class="fab fa-github"></i> <a href="${esc(ensureHref(h.github))}" target="_blank">GitHub</a></div>` : ""}
         </div>
       </div>
     </div>
@@ -541,18 +611,111 @@ function saveData() {
   a.download = `cv_${currentProfileId.replace(/\s+/g, '_').toLowerCase()}.json`; a.click();
 }
 
-function loadJSON(e) {
-  const file = e.target.files[0]; if (!file) return;
+function normalizeImportedProfile(loaded) {
+  // Supports both:
+  // 1) Profile-only JSON (from Save JSON button)
+  // 2) Full snapshot JSON with currentProfileId + allProfiles
+  if (loaded && loaded.allProfiles && loaded.currentProfileId) {
+    const importedProfile = loaded.allProfiles[loaded.currentProfileId];
+    if (!importedProfile) return null;
+    return {
+      profile: importedProfile,
+      profileId: loaded.currentProfileId,
+      mode: "snapshot"
+    };
+  }
+  if (loaded && loaded.header && loaded.layout) {
+    return {
+      profile: loaded,
+      profileId: null,
+      mode: "profile"
+    };
+  }
+  return null;
+}
+
+function importJSONFile(file, resetInputEl) {
+  console.log(`${FE_LOG_PREFIX} Import started`, {
+    name: file.name,
+    type: file.type || "unknown",
+    size: file.size
+  });
+
   const reader = new FileReader();
+  reader.onerror = function () {
+    console.error(`${FE_LOG_PREFIX} FileReader failed`, reader.error);
+    alert("Failed to read JSON file");
+    if (resetInputEl) resetInputEl.value = '';
+  };
+
   reader.onload = function (ev) {
     try {
       const loaded = JSON.parse(ev.target.result);
-      Object.assign(data, loaded);
+      const normalized = normalizeImportedProfile(loaded);
+      if (!normalized) {
+        console.error(`${FE_LOG_PREFIX} Unsupported JSON shape`, loaded);
+        alert("Invalid CV JSON format");
+        if (resetInputEl) resetInputEl.value = '';
+        return;
+      }
+
+      console.log(`${FE_LOG_PREFIX} Parsed JSON`, {
+        mode: normalized.mode,
+        topLevelKeys: Object.keys(loaded)
+      });
+
+      if (normalized.mode === "snapshot") {
+        allProfiles = loaded.allProfiles;
+        currentProfileId = normalized.profileId;
+        data = allProfiles[currentProfileId];
+      } else {
+        Object.assign(data, normalized.profile);
+      }
+
       syncInputsFromData();
+      updateDensityUI();
       render(); buildExpEditor(); buildEduEditor(); buildSkillsEditor(); buildProjEditor(); buildLangEditor(); buildInterestEditor();
-    } catch (err) { alert("Invalid JSON file"); }
+      hideImportModal();
+      console.log(`${FE_LOG_PREFIX} Import completed`, {
+        currentProfileId,
+        profilesCount: Object.keys(allProfiles || {}).length,
+        importedExperience: (data.experience || []).length,
+        importedEducation: (data.education || []).length
+      });
+      alert("CV JSON imported successfully");
+    } catch (err) {
+      console.error(`${FE_LOG_PREFIX} Invalid JSON file`, err);
+      alert("Invalid JSON file");
+    }
+    if (resetInputEl) resetInputEl.value = '';
   };
   reader.readAsText(file);
+}
+
+function handleImportFile(file, resetInputEl) {
+  if (!file) {
+    console.warn(`${FE_LOG_PREFIX} loadJSON called with no file selected`);
+    return;
+  }
+
+  const fileName = (file.name || "").toLowerCase();
+  const fileType = (file.type || "").toLowerCase();
+  const isJsonByName = fileName.endsWith('.json');
+  const isJsonByType = JSON_MIME_TYPES.has(fileType);
+  if (!isJsonByName && !isJsonByType) {
+    console.warn(`${FE_LOG_PREFIX} Rejected non-JSON import`, { fileName, fileType });
+    alert("Please upload a .json file exported for CV Studio.");
+    if (resetInputEl) resetInputEl.value = '';
+    return;
+  }
+
+  importJSONFile(file, resetInputEl);
+}
+
+function loadJSON(e) {
+  const inputEl = e && e.target ? e.target : document.getElementById('load-file');
+  const file = inputEl && inputEl.files ? inputEl.files[0] : null;
+  handleImportFile(file, inputEl);
 }
 
 function downloadPDF() {
@@ -603,39 +766,48 @@ setTimeout(updatePreviewScale, 100);
 
 // Layout Functions
 function setDensity(d) {
-  if (!data.layout) data.layout = { density: "normal" };
-  data.layout.density = d;
+  ensureLayoutData().density = d;
   updateDensityUI();
   render();
 }
 
 function updateDensityUI() {
-  const d = (data.layout && data.layout.density) || "tight";
+  const layout = data.layout || {};
+  const d = layout.density || "tight";
   document.querySelectorAll(".density-btn").forEach(b => b.classList.remove("active"));
   const activeBtn = document.getElementById("d-" + d); if (activeBtn) activeBtn.classList.add("active");
   const fillCheck = document.getElementById("fill-height-check");
-  if (fillCheck) fillCheck.checked = !!(data.layout && data.layout.fillHeight);
-  const l = data.layout || {};
+  if (fillCheck) fillCheck.checked = !!layout.fillHeight;
   if (document.getElementById("slider-font")) {
-    document.getElementById("slider-font").value = l.fontSize || 13;
-    document.getElementById("val-font").textContent = (l.fontSize || 13) + "px";
-    document.getElementById("slider-line").value = l.lineHeight || 1.1;
-    document.getElementById("val-line").textContent = l.lineHeight || 1.1;
-    document.getElementById("slider-name").value = l.nameSize || 2.8;
-    document.getElementById("val-name").textContent = (l.nameSize || 2.8) + "rem";
+    document.getElementById("slider-font").value = layout.fontSize || 13;
+    document.getElementById("val-font").textContent = (layout.fontSize || 13) + "px";
+    document.getElementById("slider-line").value = layout.lineHeight || 1.1;
+    document.getElementById("val-line").textContent = layout.lineHeight || 1.1;
+    document.getElementById("slider-name").value = layout.nameSize || 2.8;
+    document.getElementById("val-name").textContent = (layout.nameSize || 2.8) + "rem";
   }
+  const validPreset = getValidColorPresetId(layout);
+  if (layout.colorPreset !== validPreset) layout.colorPreset = validPreset;
+  updateColorPaletteUI();
 }
 
 function updateLayoutSetting(key, val) {
-  if (!data.layout) data.layout = { density: "tight" };
-  data.layout[key] = parseFloat(val);
+  ensureLayoutData()[key] = parseFloat(val);
   updateDensityUI();
   render();
 }
 
 function toggleFillHeight() {
-  if (!data.layout) data.layout = { density: "tight" };
-  data.layout.fillHeight = document.getElementById("fill-height-check").checked;
+  ensureLayoutData().fillHeight = document.getElementById("fill-height-check").checked;
+  render();
+}
+
+function setColorPalette(presetId) {
+  const preset = getColorPresetById(presetId);
+  if (!preset) return;
+  const layout = ensureLayoutData();
+  layout.colorPreset = preset.id;
+  updateDensityUI();
   render();
 }
 
@@ -647,6 +819,7 @@ function checkOverflow() {
 }
 
 // Start
+initImportModal();
 loadFromServer();
 
 // ===================================================
@@ -654,9 +827,9 @@ loadFromServer();
 // ===================================================
 
 function setTemplate(tpl) {
-  if (!data.layout) data.layout = { density: "tight" };
-  data.layout.template = tpl;
+  ensureLayoutData().template = tpl;
   updateTemplateUI();
+  updateDensityUI();
   render();
 }
 
@@ -750,6 +923,83 @@ async function removePhoto() {
 
 let templateModalContext = null; // 'initial' | 'newVersion'
 
+function triggerImportBrowse() {
+  const input = document.getElementById('load-file');
+  if (input) input.click();
+}
+
+function showImportModal() {
+  const modal = document.getElementById('import-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+function hideImportModal() {
+  const modal = document.getElementById('import-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+async function copyImportPrompt(buttonEl) {
+  const promptEl = document.getElementById('import-tip-prompt');
+  if (!promptEl) return;
+
+  const text = promptEl.value;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      promptEl.focus();
+      promptEl.select();
+      document.execCommand('copy');
+      promptEl.setSelectionRange(0, 0);
+    }
+    if (buttonEl) {
+      const original = buttonEl.innerHTML;
+      buttonEl.classList.add('copied');
+      buttonEl.innerHTML = '<i class="fas fa-check"></i> Copied';
+      setTimeout(function () {
+        buttonEl.classList.remove('copied');
+        buttonEl.innerHTML = original;
+      }, 1600);
+    }
+  } catch (err) {
+    console.error(`${FE_LOG_PREFIX} Failed to copy import prompt`, err);
+    alert('Could not copy prompt. Please copy it manually.');
+  }
+}
+
+function initImportModal() {
+  const dropZone = document.getElementById('import-drop-zone');
+  if (!dropZone) return;
+
+  const preventDefaults = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  ['dragenter', 'dragover'].forEach((evtName) => {
+    dropZone.addEventListener(evtName, function (event) {
+      preventDefaults(event);
+      dropZone.classList.add('drag-active');
+    });
+  });
+
+  ['dragleave', 'dragend', 'drop'].forEach((evtName) => {
+    dropZone.addEventListener(evtName, function (event) {
+      preventDefaults(event);
+      dropZone.classList.remove('drag-active');
+    });
+  });
+
+  dropZone.addEventListener('drop', function (event) {
+    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+    handleImportFile(file, null);
+  });
+}
+
 function showTemplateModal(context) {
   templateModalContext = context;
   const modal = document.getElementById('template-modal');
@@ -775,8 +1025,7 @@ function selectTemplateFromModal(tpl) {
     data = allProfiles[name];
     
     // Apply the chosen template
-    if (!data.layout) data.layout = { density: 'tight' };
-    data.layout.template = tpl;
+    ensureLayoutData().template = tpl;
     
     updateVersionSelect();
     hideTemplateModal();
@@ -784,10 +1033,10 @@ function selectTemplateFromModal(tpl) {
     pendingNewVersionName = null;
   } else {
     // Initial launch or direct pick: just set template on current data
-    if (!data.layout) data.layout = { density: 'tight' };
-    data.layout.template = tpl;
+    ensureLayoutData().template = tpl;
     hideTemplateModal();
     updateTemplateUI();
+    updateDensityUI();
     render();
   }
 }
