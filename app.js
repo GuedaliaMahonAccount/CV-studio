@@ -6,6 +6,8 @@ const API_URL = '/api/data';
 let allProfiles = {};
 let currentProfileId = "";
 let data = {};
+const FE_LOG_PREFIX = "[CV Studio FE]";
+const JSON_MIME_TYPES = new Set(['application/json', 'text/json']);
 
 async function loadFromServer() {
   try {
@@ -72,6 +74,9 @@ function loadFromLocalStorage() {
     allProfiles = JSON.parse(saved);
     currentProfileId = savedId || Object.keys(allProfiles)[0];
     data = allProfiles[currentProfileId];
+    updateVersionSelect();
+    syncInputsFromData();
+    updateDensityUI();
     render(false);
   }
 }
@@ -214,6 +219,48 @@ function render(shouldPush = true) {
   // Choose render method based on template
   if (template === 'creative') {
     renderCreativeTemplate(cvDoc, h);
+function hasText(v) { return !!(v && v.toString().trim()); }
+function ensureHref(url) {
+  const raw = (url || "").trim();
+  if (!raw) return "#";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+function ensureLayoutData() {
+  if (!data.layout) data.layout = { density: "tight" };
+  return data.layout;
+}
+
+function getColorPresetById(presetId) {
+  return LAYOUT_COLOR_PRESETS.find(preset => preset.id === presetId) || null;
+}
+
+function getValidColorPresetId(layout) {
+  if (layout && getColorPresetById(layout.colorPreset)) return layout.colorPreset;
+  return DEFAULT_COLOR_PRESET;
+}
+
+function getResolvedLayoutColors(layout) {
+  const presetId = getValidColorPresetId(layout);
+  const preset = getColorPresetById(presetId) || LAYOUT_COLOR_PRESETS[0];
+  if (layout && layout.colorPreset !== presetId) layout.colorPreset = presetId;
+  return {
+    presetId,
+    primary: preset.primary,
+    secondary: preset.secondary
+  };
+}
+
+function updateColorPaletteUI() {
+  const layout = data.layout || {};
+  const activePreset = getValidColorPresetId(layout);
+  if (layout.colorPreset !== activePreset) layout.colorPreset = activePreset;
+  document.querySelectorAll(".color-palette-btn").forEach(btn => {
+    const isActive = btn.id === `palette-${activePreset}`;
+    btn.classList.toggle("active", isActive);
+  });
+}
   } else if (template === 'bold') {
     renderBoldTemplate(cvDoc, h);
   } else {
@@ -238,8 +285,8 @@ function renderStandardTemplate(cvDoc, h) {
         <div class="cv-contact-item"><span>${esc(h.email)}</span><i class="fas fa-envelope"></i></div>
         <div class="cv-contact-item"><span>${esc(h.phone)}</span><i class="fas fa-phone"></i></div>
         <div class="cv-contact-item"><span>${esc(h.location)}</span><i class="fas fa-map-marker-alt"></i></div>
-        <div class="cv-contact-item"><a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a><i class="fab fa-linkedin"></i></div>
-        <div class="cv-contact-item"><a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a><i class="fab fa-github"></i></div>
+        ${hasText(h.linkedin) ? `<div class="cv-contact-item"><a href="${esc(ensureHref(h.linkedin))}" target="_blank">LinkedIn</a><i class="fab fa-linkedin"></i></div>` : ""}
+        ${hasText(h.github) ? `<div class="cv-contact-item"><a href="${esc(ensureHref(h.github))}" target="_blank">GitHub</a><i class="fab fa-github"></i></div>` : ""}
       </div>
     </div>
     <div class="cv-body">
@@ -266,8 +313,8 @@ function renderCreativeTemplate(cvDoc, h) {
           <div class="creative-contact-item"><i class="fas fa-envelope"></i> ${esc(h.email)}</div>
           <div class="creative-contact-item"><i class="fas fa-phone"></i> ${esc(h.phone)}</div>
           <div class="creative-contact-item"><i class="fas fa-map-marker-alt"></i> ${esc(h.location)}</div>
-          <div class="creative-contact-item"><i class="fab fa-linkedin"></i> <a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a></div>
-          <div class="creative-contact-item"><i class="fab fa-github"></i> <a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a></div>
+          ${hasText(h.linkedin) ? `<div class="creative-contact-item"><i class="fab fa-linkedin"></i> <a href="${esc(ensureHref(h.linkedin))}" target="_blank">LinkedIn</a></div>` : ""}
+          ${hasText(h.github) ? `<div class="creative-contact-item"><i class="fab fa-github"></i> <a href="${esc(ensureHref(h.github))}" target="_blank">GitHub</a></div>` : ""}
         </div>
         
         ${data.skills && data.skills.length ? `
@@ -310,8 +357,8 @@ function renderBoldTemplate(cvDoc, h) {
           <div class="bold-contact-item"><i class="fas fa-envelope"></i> ${esc(h.email)}</div>
           <div class="bold-contact-item"><i class="fas fa-phone"></i> ${esc(h.phone)}</div>
           <div class="bold-contact-item"><i class="fas fa-map-marker-alt"></i> ${esc(h.location)}</div>
-          <div class="bold-contact-item"><i class="fab fa-linkedin"></i> <a href="https://${esc(h.linkedin)}" target="_blank">${esc(h.linkedin)}</a></div>
-          <div class="bold-contact-item"><i class="fab fa-github"></i> <a href="https://${esc(h.github)}" target="_blank">${esc(h.github)}</a></div>
+          ${hasText(h.linkedin) ? `<div class="bold-contact-item"><i class="fab fa-linkedin"></i> <a href="${esc(ensureHref(h.linkedin))}" target="_blank">LinkedIn</a></div>` : ""}
+          ${hasText(h.github) ? `<div class="bold-contact-item"><i class="fab fa-github"></i> <a href="${esc(ensureHref(h.github))}" target="_blank">GitHub</a></div>` : ""}
         </div>
       </div>
     </div>
@@ -541,16 +588,76 @@ function saveData() {
   a.download = `cv_${currentProfileId.replace(/\s+/g, '_').toLowerCase()}.json`; a.click();
 }
 
-function loadJSON(e) {
-  const file = e.target.files[0]; if (!file) return;
+function normalizeImportedProfile(loaded) {
+  // Supports both:
+  // 1) Profile-only JSON (from Save JSON button)
+  // 2) Full snapshot JSON with currentProfileId + allProfiles
+  if (loaded && loaded.allProfiles && loaded.currentProfileId) {
+    const importedProfile = loaded.allProfiles[loaded.currentProfileId];
+    if (!importedProfile) return null;
+    return {
+      profile: importedProfile,
+      profileId: loaded.currentProfileId,
+      mode: "snapshot"
+    };
+  }
+  if (loaded && loaded.header && loaded.layout) {
+    return {
+      profile: loaded,
+      profileId: null,
+      mode: "profile"
+    };
+  }
+  return null;
+}
+
+function importJSONFile(file, resetInputEl) {
+  console.log(`${FE_LOG_PREFIX} Import started`, {
+    name: file.name,
+    type: file.type || "unknown",
+    size: file.size
+  });
+
   const reader = new FileReader();
   reader.onload = function (ev) {
     try {
       const loaded = JSON.parse(ev.target.result);
-      Object.assign(data, loaded);
+      const normalized = normalizeImportedProfile(loaded);
+      if (!normalized) {
+        console.error(`${FE_LOG_PREFIX} Unsupported JSON shape`, loaded);
+        alert("Invalid CV JSON format");
+        if (resetInputEl) resetInputEl.value = '';
+        return;
+      }
+
+      console.log(`${FE_LOG_PREFIX} Parsed JSON`, {
+        mode: normalized.mode,
+        topLevelKeys: Object.keys(loaded)
+      });
+
+      if (normalized.mode === "snapshot") {
+        allProfiles = loaded.allProfiles;
+        currentProfileId = normalized.profileId;
+        data = allProfiles[currentProfileId];
+      } else {
+        Object.assign(data, normalized.profile);
+      }
+
       syncInputsFromData();
       render(); buildExpEditor(); buildEduEditor(); buildSkillsEditor(); buildProjEditor(); buildLangEditor(); buildInterestEditor();
-    } catch (err) { alert("Invalid JSON file"); }
+      hideImportModal();
+      console.log(`${FE_LOG_PREFIX} Import completed`, {
+        currentProfileId,
+        profilesCount: Object.keys(allProfiles || {}).length,
+        importedExperience: (data.experience || []).length,
+        importedEducation: (data.education || []).length
+      });
+      alert("CV JSON imported successfully");
+    } catch (err) {
+      console.error(`${FE_LOG_PREFIX} Invalid JSON file`, err);
+      alert("Invalid JSON file");
+    }
+    if (resetInputEl) resetInputEl.value = '';
   };
   reader.readAsText(file);
 }
@@ -617,17 +724,50 @@ function updateDensityUI() {
   if (fillCheck) fillCheck.checked = !!(data.layout && data.layout.fillHeight);
   const l = data.layout || {};
   if (document.getElementById("slider-font")) {
+  reader.onerror = function () {
+    console.error(`${FE_LOG_PREFIX} FileReader failed`, reader.error);
+    alert("Failed to read JSON file");
+    if (resetInputEl) resetInputEl.value = '';
+  };
+
     document.getElementById("slider-font").value = l.fontSize || 13;
     document.getElementById("val-font").textContent = (l.fontSize || 13) + "px";
     document.getElementById("slider-line").value = l.lineHeight || 1.1;
     document.getElementById("val-line").textContent = l.lineHeight || 1.1;
     document.getElementById("slider-name").value = l.nameSize || 2.8;
+      updateDensityUI();
     document.getElementById("val-name").textContent = (l.nameSize || 2.8) + "rem";
   }
 }
 
 function updateLayoutSetting(key, val) {
   if (!data.layout) data.layout = { density: "tight" };
+function handleImportFile(file, resetInputEl) {
+  if (!file) {
+    console.warn(`${FE_LOG_PREFIX} loadJSON called with no file selected`);
+    return;
+  }
+
+  const fileName = (file.name || "").toLowerCase();
+  const fileType = (file.type || "").toLowerCase();
+  const isJsonByName = fileName.endsWith('.json');
+  const isJsonByType = JSON_MIME_TYPES.has(fileType);
+  if (!isJsonByName && !isJsonByType) {
+    console.warn(`${FE_LOG_PREFIX} Rejected non-JSON import`, { fileName, fileType });
+    alert("Please upload a .json file exported for CV Studio.");
+    if (resetInputEl) resetInputEl.value = '';
+    return;
+  }
+
+  importJSONFile(file, resetInputEl);
+}
+
+function loadJSON(e) {
+  const inputEl = e && e.target ? e.target : document.getElementById('load-file');
+  const file = inputEl && inputEl.files ? inputEl.files[0] : null;
+  handleImportFile(file, inputEl);
+}
+
   data.layout[key] = parseFloat(val);
   updateDensityUI();
   render();
@@ -729,6 +869,7 @@ async function removePhoto() {
   // Delete from server if it's an uploaded file
   if (data.header.photo.startsWith('/uploads/')) {
     try {
+initImportModal();
       await fetch('/api/photo', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -791,3 +932,80 @@ function selectTemplateFromModal(tpl) {
     render();
   }
 }
+function triggerImportBrowse() {
+  const input = document.getElementById('load-file');
+  if (input) input.click();
+}
+
+function showImportModal() {
+  const modal = document.getElementById('import-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+function hideImportModal() {
+  const modal = document.getElementById('import-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+async function copyImportPrompt(buttonEl) {
+  const promptEl = document.getElementById('import-tip-prompt');
+  if (!promptEl) return;
+
+  const text = promptEl.value;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      promptEl.focus();
+      promptEl.select();
+      document.execCommand('copy');
+      promptEl.setSelectionRange(0, 0);
+    }
+    if (buttonEl) {
+      const original = buttonEl.innerHTML;
+      buttonEl.classList.add('copied');
+      buttonEl.innerHTML = '<i class="fas fa-check"></i> Copied';
+      setTimeout(function () {
+        buttonEl.classList.remove('copied');
+        buttonEl.innerHTML = original;
+      }, 1600);
+    }
+  } catch (err) {
+    console.error(`${FE_LOG_PREFIX} Failed to copy import prompt`, err);
+    alert('Could not copy prompt. Please copy it manually.');
+  }
+}
+
+function initImportModal() {
+  const dropZone = document.getElementById('import-drop-zone');
+  if (!dropZone) return;
+
+  const preventDefaults = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  ['dragenter', 'dragover'].forEach((evtName) => {
+    dropZone.addEventListener(evtName, function (event) {
+      preventDefaults(event);
+      dropZone.classList.add('drag-active');
+    });
+  });
+
+  ['dragleave', 'dragend', 'drop'].forEach((evtName) => {
+    dropZone.addEventListener(evtName, function (event) {
+      preventDefaults(event);
+      dropZone.classList.remove('drag-active');
+    });
+  });
+
+  dropZone.addEventListener('drop', function (event) {
+    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+    handleImportFile(file, null);
+  });
+}
+
