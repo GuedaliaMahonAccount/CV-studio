@@ -522,6 +522,16 @@ function buildSkillsEditor() {
   data.skills.forEach((s, i) => {
     const tag = document.createElement("div"); tag.className = "skill-tag-edit";
     tag.innerHTML = `<span>${esc(s)}</span><button onclick="data.skills.splice(${i},1);render();buildSkillsEditor()"><i class="fas fa-times"></i></button>`;
+    
+    // Drag-and-drop attributes
+    tag.draggable = true;
+    tag.dataset.index = i;
+    tag.addEventListener("dragstart", onSkillDragStart);
+    tag.addEventListener("dragend", onSkillDragEnd);
+    tag.addEventListener("dragover", onSkillDragOver);
+    tag.addEventListener("dragleave", onSkillDragLeave);
+    tag.addEventListener("drop", onSkillDrop);
+
     c.appendChild(tag);
   });
 }
@@ -591,14 +601,7 @@ function addInterest() {
   const v = inp.value.trim(); if (!v) return;
   data.interests.push(v); inp.value = ""; render(); buildInterestEditor();
 }
-    tag.draggable = true;
-    tag.dataset.index = i;
 
-    tag.addEventListener("dragstart", onSkillDragStart);
-    tag.addEventListener("dragend", onSkillDragEnd);
-    tag.addEventListener("dragover", onSkillDragOver);
-    tag.addEventListener("dragleave", onSkillDragLeave);
-    tag.addEventListener("drop", onSkillDrop);
 // ===================================================
 // UTILS
 // ===================================================
@@ -608,6 +611,8 @@ function moveItem(arr, idx, dir) {
   const n = idx + dir; if (n < 0 || n >= arr.length) return;
   [arr[idx], arr[n]] = [arr[n], arr[idx]];
   render(); buildExpEditor(); buildEduEditor(); buildProjEditor(); buildLangEditor();
+}
+
 let draggedSkillIndex = null;
 
 function onSkillDragStart(event) {
@@ -621,18 +626,14 @@ function onSkillDragStart(event) {
 
 function onSkillDragEnd(event) {
   event.currentTarget.classList.remove("dragging");
-  document.querySelectorAll(".skill-tag-edit.drop-target").forEach(el => {
-    el.classList.remove("drop-target");
-  });
+  document.querySelectorAll(".skill-tag-edit.drop-target").forEach(el => el.classList.remove("drop-target"));
   draggedSkillIndex = null;
 }
 
 function onSkillDragOver(event) {
   event.preventDefault();
   event.currentTarget.classList.add("drop-target");
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = "move";
-  }
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 }
 
 function onSkillDragLeave(event) {
@@ -649,8 +650,6 @@ function onSkillDrop(event) {
   data.skills.splice(targetIndex, 0, item);
   render();
   buildSkillsEditor();
-}
-
 }
 
 function switchTab(name) {
@@ -679,22 +678,13 @@ function normalizeImportedProfile(loaded) {
 }
 
 function importJSONFile(file, resetInputEl) {
-  console.log(`${FE_LOG_PREFIX} Import started`, { name: file.name, type: file.type || "unknown", size: file.size });
   const reader = new FileReader();
-  reader.onerror = function () {
-    console.error(`${FE_LOG_PREFIX} FileReader failed`, reader.error);
-    alert("Failed to read JSON file");
-    if (resetInputEl) resetInputEl.value = '';
-  };
+  reader.onerror = () => { alert("Failed to read JSON file"); if (resetInputEl) resetInputEl.value = ''; };
   reader.onload = function (ev) {
     try {
       const loaded = JSON.parse(ev.target.result);
       const normalized = normalizeImportedProfile(loaded);
-      if (!normalized) {
-        alert("Invalid CV JSON format");
-        if (resetInputEl) resetInputEl.value = '';
-        return;
-      }
+      if (!normalized) { alert("Invalid CV JSON format"); if (resetInputEl) resetInputEl.value = ''; return; }
       if (normalized.mode === "snapshot") {
         allProfiles = loaded.allProfiles;
         currentProfileId = normalized.profileId;
@@ -707,10 +697,7 @@ function importJSONFile(file, resetInputEl) {
       render(); buildExpEditor(); buildEduEditor(); buildSkillsEditor(); buildProjEditor(); buildLangEditor(); buildInterestEditor();
       hideImportModal();
       alert("CV JSON imported successfully");
-    } catch (err) {
-      console.error(`${FE_LOG_PREFIX} Invalid JSON file`, err);
-      alert("Invalid JSON file");
-    }
+    } catch (err) { alert("Invalid JSON file"); }
     if (resetInputEl) resetInputEl.value = '';
   };
   reader.readAsText(file);

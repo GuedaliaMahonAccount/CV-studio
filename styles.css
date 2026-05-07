@@ -1259,3 +1259,22 @@ input[type="range"] {
   color: var(--teal);
   border: 1px solid rgba(42,138,138,0.22);
 }
+
+/* Drag and Drop for Skills */
+.skill-tag-edit[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+.skill-tag-edit[draggable="true"]:active {
+  cursor: grabbing;
+}
+.skill-tag-edit.dragging {
+  opacity: 0.4;
+  background: var(--sb-hover);
+  border: 1px dashed var(--teal);
+}
+.skill-tag-edit.drop-target {
+  border: 2px solid var(--teal);
+  transform: scale(1.05);
+  background: var(--teal-glow);
+}
