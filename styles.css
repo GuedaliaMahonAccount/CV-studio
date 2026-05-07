@@ -615,6 +615,16 @@ body { flex-direction: row; }
 }
 
 .preview-toolbar {
+  height: 42px;
+  flex-shrink: 0;
+  background: #141820;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
 /* ===== IMPORT ONBOARDING MODAL ===== */
 .import-modal-overlay {
   position: fixed;
@@ -778,15 +788,6 @@ body { flex-direction: row; }
   padding: 10px;
 }
 
-  height: 42px;
-  flex-shrink: 0;
-  background: #141820;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-}
 .preview-label {
   font-size: 0.72rem;
   font-weight: 700;
@@ -1146,18 +1147,20 @@ body { flex-direction: row; }
 /* Density UI */
 .density-box {
   background: var(--sb-surface);
-
+  border: 1px solid var(--sb-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 860px) {
   .import-modal {
     padding: 20px 16px 16px;
   }
   .import-modal-header h2 { font-size: 1.2rem; }
   .import-drop-zone { padding: 18px 12px; }
   .import-tip-prompt { min-height: 128px; font-size: 0.7rem; }
-  border: 1px solid var(--sb-border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-bottom: 20px;
 }
+
 .panel-hint {
   font-size: 0.72rem;
   color: var(--sb-muted);

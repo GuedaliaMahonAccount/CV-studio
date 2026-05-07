@@ -38,6 +38,10 @@ async function loadFromServer() {
     if (!hasTemplate) {
       showTemplateModal('initial');
     }
+
+    // Initialize Import Modal events
+    initImportModal();
+
   } catch (err) {
     console.error("Error loading from server. Make sure 'npm start' is running.", err);
     // Fallback to local storage if server is down
@@ -78,6 +82,7 @@ function loadFromLocalStorage() {
     syncInputsFromData();
     updateDensityUI();
     render(false);
+    initImportModal();
   }
 }
 
@@ -219,48 +224,6 @@ function render(shouldPush = true) {
   // Choose render method based on template
   if (template === 'creative') {
     renderCreativeTemplate(cvDoc, h);
-function hasText(v) { return !!(v && v.toString().trim()); }
-function ensureHref(url) {
-  const raw = (url || "").trim();
-  if (!raw) return "#";
-  if (/^https?:\/\//i.test(raw)) return raw;
-  return `https://${raw}`;
-}
-
-function ensureLayoutData() {
-  if (!data.layout) data.layout = { density: "tight" };
-  return data.layout;
-}
-
-function getColorPresetById(presetId) {
-  return LAYOUT_COLOR_PRESETS.find(preset => preset.id === presetId) || null;
-}
-
-function getValidColorPresetId(layout) {
-  if (layout && getColorPresetById(layout.colorPreset)) return layout.colorPreset;
-  return DEFAULT_COLOR_PRESET;
-}
-
-function getResolvedLayoutColors(layout) {
-  const presetId = getValidColorPresetId(layout);
-  const preset = getColorPresetById(presetId) || LAYOUT_COLOR_PRESETS[0];
-  if (layout && layout.colorPreset !== presetId) layout.colorPreset = presetId;
-  return {
-    presetId,
-    primary: preset.primary,
-    secondary: preset.secondary
-  };
-}
-
-function updateColorPaletteUI() {
-  const layout = data.layout || {};
-  const activePreset = getValidColorPresetId(layout);
-  if (layout.colorPreset !== activePreset) layout.colorPreset = activePreset;
-  document.querySelectorAll(".color-palette-btn").forEach(btn => {
-    const isActive = btn.id === `palette-${activePreset}`;
-    btn.classList.toggle("active", isActive);
-  });
-}
   } else if (template === 'bold') {
     renderBoldTemplate(cvDoc, h);
   } else {
@@ -270,6 +233,14 @@ function updateColorPaletteUI() {
   if (shouldPush) pushToServer();
   updatePreviewScale();
   setTimeout(checkOverflow, 50);
+}
+
+function hasText(v) { return !!(v && v.toString().trim()); }
+function ensureHref(url) {
+  const raw = (url || "").trim();
+  if (!raw) return "#";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
 }
 
 // Standard layout (Classic, Executive, Minimal)
@@ -659,6 +630,11 @@ function importJSONFile(file, resetInputEl) {
     }
     if (resetInputEl) resetInputEl.value = '';
   };
+  reader.onerror = function () {
+    console.error(`${FE_LOG_PREFIX} FileReader failed`, reader.error);
+    alert("Failed to read JSON file");
+    if (resetInputEl) resetInputEl.value = '';
+  };
   reader.readAsText(file);
 }
 
@@ -724,24 +700,35 @@ function updateDensityUI() {
   if (fillCheck) fillCheck.checked = !!(data.layout && data.layout.fillHeight);
   const l = data.layout || {};
   if (document.getElementById("slider-font")) {
-  reader.onerror = function () {
-    console.error(`${FE_LOG_PREFIX} FileReader failed`, reader.error);
-    alert("Failed to read JSON file");
-    if (resetInputEl) resetInputEl.value = '';
-  };
-
     document.getElementById("slider-font").value = l.fontSize || 13;
     document.getElementById("val-font").textContent = (l.fontSize || 13) + "px";
     document.getElementById("slider-line").value = l.lineHeight || 1.1;
     document.getElementById("val-line").textContent = l.lineHeight || 1.1;
     document.getElementById("slider-name").value = l.nameSize || 2.8;
-      updateDensityUI();
     document.getElementById("val-name").textContent = (l.nameSize || 2.8) + "rem";
   }
 }
 
 function updateLayoutSetting(key, val) {
   if (!data.layout) data.layout = { density: "tight" };
+  data.layout[key] = parseFloat(val);
+  updateDensityUI();
+  render();
+}
+
+function toggleFillHeight() {
+  if (!data.layout) data.layout = { density: "tight" };
+  data.layout.fillHeight = document.getElementById("fill-height-check").checked;
+  render();
+}
+
+function checkOverflow() {
+  const doc = document.getElementById("cv-doc");
+  if (!doc) return;
+  if (doc.scrollHeight > 1125) doc.classList.add("overflowing");
+  else doc.classList.remove("overflowing");
+}
+
 function handleImportFile(file, resetInputEl) {
   if (!file) {
     console.warn(`${FE_LOG_PREFIX} loadJSON called with no file selected`);
@@ -766,24 +753,6 @@ function loadJSON(e) {
   const inputEl = e && e.target ? e.target : document.getElementById('load-file');
   const file = inputEl && inputEl.files ? inputEl.files[0] : null;
   handleImportFile(file, inputEl);
-}
-
-  data.layout[key] = parseFloat(val);
-  updateDensityUI();
-  render();
-}
-
-function toggleFillHeight() {
-  if (!data.layout) data.layout = { density: "tight" };
-  data.layout.fillHeight = document.getElementById("fill-height-check").checked;
-  render();
-}
-
-function checkOverflow() {
-  const doc = document.getElementById("cv-doc");
-  if (!doc) return;
-  if (doc.scrollHeight > 1125) doc.classList.add("overflowing");
-  else doc.classList.remove("overflowing");
 }
 
 // Start
@@ -869,7 +838,6 @@ async function removePhoto() {
   // Delete from server if it's an uploaded file
   if (data.header.photo.startsWith('/uploads/')) {
     try {
-initImportModal();
       await fetch('/api/photo', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -932,6 +900,11 @@ function selectTemplateFromModal(tpl) {
     render();
   }
 }
+
+// ===================================================
+// IMPORT MODAL FUNCTIONS
+// ===================================================
+
 function triggerImportBrowse() {
   const input = document.getElementById('load-file');
   if (input) input.click();
@@ -1008,4 +981,3 @@ function initImportModal() {
     handleImportFile(file, null);
   });
 }
-
