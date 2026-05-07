@@ -227,6 +227,48 @@
           </div>
         </div>
 
+        <div class="panel-section-head">Colors</div>
+        <div class="density-box">
+          <p class="panel-hint">Choose one of 5 predefined palettes. Applies to CV preview/export only.</p>
+          <div class="color-palette-grid">
+            <button class="color-palette-btn" id="palette-classic-teal" onclick="setColorPalette('classic-teal')" type="button">
+              <span class="palette-chips">
+                <span class="palette-chip" style="background:#2a8a8a"></span>
+                <span class="palette-chip" style="background:#1e6666"></span>
+              </span>
+              <span>Teal</span>
+            </button>
+            <button class="color-palette-btn" id="palette-executive-gold" onclick="setColorPalette('executive-gold')" type="button">
+              <span class="palette-chips">
+                <span class="palette-chip" style="background:#c9a84c"></span>
+                <span class="palette-chip" style="background:#1a2744"></span>
+              </span>
+              <span>Gold Navy</span>
+            </button>
+            <button class="color-palette-btn" id="palette-creative-violet" onclick="setColorPalette('creative-violet')" type="button">
+              <span class="palette-chips">
+                <span class="palette-chip" style="background:#7c3aed"></span>
+                <span class="palette-chip" style="background:#5b21b6"></span>
+              </span>
+              <span>Violet</span>
+            </button>
+            <button class="color-palette-btn" id="palette-bold-coral" onclick="setColorPalette('bold-coral')" type="button">
+              <span class="palette-chips">
+                <span class="palette-chip" style="background:#e74c3c"></span>
+                <span class="palette-chip" style="background:#c0392b"></span>
+              </span>
+              <span>Coral</span>
+            </button>
+            <button class="color-palette-btn" id="palette-minimal-slate" onclick="setColorPalette('minimal-slate')" type="button">
+              <span class="palette-chips">
+                <span class="palette-chip" style="background:#555555"></span>
+                <span class="palette-chip" style="background:#333333"></span>
+              </span>
+              <span>Slate</span>
+            </button>
+          </div>
+        </div>
+
         <div class="panel-section-head">Page Density</div>
         <div class="density-box">
           <p class="panel-hint">Presets for overall spacing.</p>
@@ -273,7 +315,7 @@
 
     <!-- Bottom action bar -->
     <div class="editor-actions">
-      <button class="act-btn ghost" onclick="document.getElementById('load-file').click()">
+      <button class="act-btn ghost" onclick="showImportModal()">
         <i class="fas fa-upload"></i><span>Load</span>
       </button>
       <button class="act-btn ghost" onclick="saveData()">
@@ -296,6 +338,7 @@
       <div id="cv-doc"></div>
     </div>
   </main>
+
   <!-- ========== TEMPLATE CHOOSER MODAL ========== -->
   <div id="template-modal" class="tpl-modal-overlay" style="display:none">
     <div class="tpl-modal">
@@ -373,7 +416,65 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- ========== IMPORT ONBOARDING MODAL ========== -->
+  <div id="import-modal" class="import-modal-overlay" style="display:none">
+    <div class="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+      <button class="import-modal-close" type="button" onclick="hideImportModal()" aria-label="Close import guide">
+        <i class="fas fa-times"></i>
+      </button>
+      <div class="import-modal-header">
+        <h2 id="import-modal-title"><i class="fas fa-file-import"></i> Import your CV JSON</h2>
+        <p>CV Studio imports <strong>.json</strong> files in CV Studio format (single profile or full snapshot export).</p>
+      </div>
+      <div id="import-drop-zone" class="import-drop-zone" onclick="triggerImportBrowse()">
+        <div class="import-drop-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+        <div class="import-drop-title">Drag and drop your `.json` file here</div>
+        <div class="import-drop-sub">or click to browse from your computer</div>
+      </div>
+      <details class="import-tip">
+        <summary>using canva/docs?</summary>
+        <p>Export your CV from Canva as <strong>DOCX</strong>, then ask any AI tool to convert it into CV Studio JSON.</p>
+        <div class="import-tip-label-row">
+          <p class="import-tip-label">Suggested prompt (attach your DOCX):</p>
+          <button
+            type="button"
+            class="import-tip-copy-btn"
+            onclick="copyImportPrompt(this)"
+            aria-label="Copy suggested prompt"
+          >
+            <i class="fas fa-copy"></i> Copy
+          </button>
+        </div>
+        <textarea id="import-tip-prompt" readonly class="import-tip-prompt">Convert the attached DOCX resume into valid CV Studio JSON.
+
+Output rules:
+- Return JSON only (no markdown code fences, no explanations, no extra text).
+- Use single-profile format only (do NOT include allProfiles or currentProfileId).
+- Include exactly these top-level keys in this order: header, experience, education, skills, projects, languages, interests, layout.
+- If a value is missing, use an empty string "" (or [] for list fields); do not omit keys.
+
+Expected structure:
+- header: { name, title, location, email, phone, website, linkedin, summary, photo }
+- experience: [{ role, company, location, date, bullets: [] }]
+- education: [{ degree, school, location, date, details }]
+- skills: ["..."]
+- projects: [{ name, date, url, bullets: [] }]
+- languages: [{ language, level }]
+- interests: ["..."]
+- layout: { template, density, fillHeight, fontSize, lineHeight, nameSize, colorPreset }
+
+Normalization rules:
+- Preserve reverse chronology for experience, education, and projects (most recent first).
+- Keep bullet points concise, action-oriented, and specific.
+- Keep dates as plain strings (e.g., "2022-2024" or "Jan 2023 - Present").
+- Ensure valid JSON escaping for quotes and special characters.
+
+Now return the final JSON object only.</textarea>
+      </details>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260506-3"></script>
 </body>
 
 </html>
