@@ -1,0 +1,99 @@
+{
+  "header": {
+    "name": "Ori Assia",
+    "title": "Full Stack Developer",
+    "summary": "Full Stack Developer at RelyOn.ai, an operational safety platform that connects end users with a live response team offering 24/7 service. Work spans a React Native mobile app, a Next.js operator console, and a Node.js/Firebase backend on GCP, with a focus on reliability and safe production rollouts.",
+    "email": "",
+    "phone": "",
+    "location": "Israel",
+    "linkedin": "",
+    "github": ""
+  },
+  "experience": [
+    {
+      "title": "Full Stack Developer",
+      "company": "RelyOn.ai",
+      "dates": "2024 - Present",
+      "location": "",
+      "description": "Building and maintaining cross-platform emergency-response products across mobile, web, and backend systems.",
+      "bullets": [
+        "Shipped updates to a cross-platform React Native app used by 5,000+ end users, including Twilio Voice and background geolocation integrations for emergency workflows.",
+        "Maintained and improved a real-time Next.js dashboard for emergency operators, with live map tracking and multi-tenant state management using Recoil and TanStack Query.",
+        "Maintained core safety features (SOS, geofencing) across 18 Firebase services and debugged cross-stack issues.",
+        "Set up structured logging (no PII), CI checks, internationalization (he/en/es), and product analytics via Mixpanel and LogRocket."
+      ],
+      "contact": ""
+    },
+    {
+      "title": "Iron Dome Officer",
+      "company": "Israel Air Force",
+      "dates": "2018 - 2023",
+      "location": "",
+      "description": "Iron Dome system operator, experienced commander, and instructor.",
+      "bullets": [],
+      "contact": ""
+    }
+  ],
+  "education": [
+    {
+      "degree": "Full Stack Bootcamp",
+      "institution": "IITC College, Israel",
+      "dates": "2023 - 2024",
+      "location": "Israel",
+      "details": "Intensive full-time program covering front-end and back-end development. Built and deployed full-stack applications with API integrations, database management, responsive design, state management, and RESTful services."
+    },
+    {
+      "degree": "High School - Major in Computer Science",
+      "institution": "Yuvalim, Or Yehuda, Israel",
+      "dates": "2016 - 2018",
+      "location": "Israel",
+      "details": "Foundational programming in C#."
+    }
+  ],
+  "skills": [
+    "React Native",
+    "MobX",
+    "Expo",
+    "Next.js",
+    "TypeScript",
+    "Tailwind CSS",
+    "shadcn/ui",
+    "JavaScript",
+    "Node.js",
+    "GCP",
+    "Firebase Functions",
+    "Firestore",
+    "Firebase Auth",
+    "Cloud Pub/Sub",
+    "Cloud Run",
+    "Twilio Voice",
+    "Google Maps API",
+    "Mixpanel",
+    "SendGrid",
+    "LogRocket",
+    "Recoil",
+    "TanStack Query",
+    "CI/CD",
+    "i18n"
+  ],
+  "projects": [],
+  "languages": [
+    {
+      "name": "Hebrew",
+      "level": "Native"
+    },
+    {
+      "name": "English",
+      "level": "Fluent"
+    }
+  ],
+  "interests": [],
+  "layout": {
+    "density": "tight",
+    "fillHeight": false,
+    "fontSize": 13,
+    "lineHeight": 1.1,
+    "nameSize": 2.8,
+    "template": "classic"
+  }
+}

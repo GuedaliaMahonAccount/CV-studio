@@ -38,6 +38,10 @@ async function loadFromServer() {
     if (!hasTemplate) {
       showTemplateModal('initial');
     }
+
+    // Initialize Import Modal events
+    initImportModal();
+
   } catch (err) {
     console.error("Error loading from server. Make sure 'npm start' is running.", err);
     // Fallback to local storage if server is down
@@ -78,6 +82,7 @@ function loadFromLocalStorage() {
     syncInputsFromData();
     updateDensityUI();
     render(false);
+    initImportModal();
   }
 }
 
@@ -612,58 +617,34 @@ function saveData() {
 }
 
 function normalizeImportedProfile(loaded) {
-  // Supports both:
-  // 1) Profile-only JSON (from Save JSON button)
-  // 2) Full snapshot JSON with currentProfileId + allProfiles
   if (loaded && loaded.allProfiles && loaded.currentProfileId) {
     const importedProfile = loaded.allProfiles[loaded.currentProfileId];
     if (!importedProfile) return null;
-    return {
-      profile: importedProfile,
-      profileId: loaded.currentProfileId,
-      mode: "snapshot"
-    };
+    return { profile: importedProfile, profileId: loaded.currentProfileId, mode: "snapshot" };
   }
   if (loaded && loaded.header && loaded.layout) {
-    return {
-      profile: loaded,
-      profileId: null,
-      mode: "profile"
-    };
+    return { profile: loaded, profileId: null, mode: "profile" };
   }
   return null;
 }
 
 function importJSONFile(file, resetInputEl) {
-  console.log(`${FE_LOG_PREFIX} Import started`, {
-    name: file.name,
-    type: file.type || "unknown",
-    size: file.size
-  });
-
+  console.log(`${FE_LOG_PREFIX} Import started`, { name: file.name, type: file.type || "unknown", size: file.size });
   const reader = new FileReader();
   reader.onerror = function () {
     console.error(`${FE_LOG_PREFIX} FileReader failed`, reader.error);
     alert("Failed to read JSON file");
     if (resetInputEl) resetInputEl.value = '';
   };
-
   reader.onload = function (ev) {
     try {
       const loaded = JSON.parse(ev.target.result);
       const normalized = normalizeImportedProfile(loaded);
       if (!normalized) {
-        console.error(`${FE_LOG_PREFIX} Unsupported JSON shape`, loaded);
         alert("Invalid CV JSON format");
         if (resetInputEl) resetInputEl.value = '';
         return;
       }
-
-      console.log(`${FE_LOG_PREFIX} Parsed JSON`, {
-        mode: normalized.mode,
-        topLevelKeys: Object.keys(loaded)
-      });
-
       if (normalized.mode === "snapshot") {
         allProfiles = loaded.allProfiles;
         currentProfileId = normalized.profileId;
@@ -671,17 +652,10 @@ function importJSONFile(file, resetInputEl) {
       } else {
         Object.assign(data, normalized.profile);
       }
-
       syncInputsFromData();
       updateDensityUI();
       render(); buildExpEditor(); buildEduEditor(); buildSkillsEditor(); buildProjEditor(); buildLangEditor(); buildInterestEditor();
       hideImportModal();
-      console.log(`${FE_LOG_PREFIX} Import completed`, {
-        currentProfileId,
-        profilesCount: Object.keys(allProfiles || {}).length,
-        importedExperience: (data.experience || []).length,
-        importedEducation: (data.education || []).length
-      });
       alert("CV JSON imported successfully");
     } catch (err) {
       console.error(`${FE_LOG_PREFIX} Invalid JSON file`, err);
@@ -693,22 +667,14 @@ function importJSONFile(file, resetInputEl) {
 }
 
 function handleImportFile(file, resetInputEl) {
-  if (!file) {
-    console.warn(`${FE_LOG_PREFIX} loadJSON called with no file selected`);
-    return;
-  }
-
+  if (!file) return;
   const fileName = (file.name || "").toLowerCase();
   const fileType = (file.type || "").toLowerCase();
-  const isJsonByName = fileName.endsWith('.json');
-  const isJsonByType = JSON_MIME_TYPES.has(fileType);
-  if (!isJsonByName && !isJsonByType) {
-    console.warn(`${FE_LOG_PREFIX} Rejected non-JSON import`, { fileName, fileType });
+  if (!fileName.endsWith('.json') && !JSON_MIME_TYPES.has(fileType)) {
     alert("Please upload a .json file exported for CV Studio.");
     if (resetInputEl) resetInputEl.value = '';
     return;
   }
-
   importJSONFile(file, resetInputEl);
 }
 
@@ -819,7 +785,6 @@ function checkOverflow() {
 }
 
 // Start
-initImportModal();
 loadFromServer();
 
 // ===================================================
@@ -857,186 +822,95 @@ function updatePhotoPreview() {
 async function uploadPhoto(event) {
   const file = event.target.files[0];
   if (!file) return;
-  
-  // Validate file size (5 MB)
-  if (file.size > 5 * 1024 * 1024) {
-    alert('Photo must be smaller than 5 MB');
-    event.target.value = '';
-    return;
-  }
-  
+  if (file.size > 5 * 1024 * 1024) { alert('Photo must be smaller than 5 MB'); event.target.value = ''; return; }
   const formData = new FormData();
   formData.append('photo', file);
-  
   try {
-    const res = await fetch('/api/upload-photo', {
-      method: 'POST',
-      body: formData
-    });
+    const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
     const result = await res.json();
     if (result.url) {
-      // Delete old photo if it was an uploaded one
       if (data.header.photo && data.header.photo.startsWith('/uploads/')) {
-        fetch('/api/photo', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: data.header.photo })
-        }).catch(() => {});
+        fetch('/api/photo', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: data.header.photo }) }).catch(() => {});
       }
       data.header.photo = result.url;
       updatePhotoPreview();
       render();
     }
-  } catch (err) {
-    console.error('Upload failed:', err);
-    alert('Failed to upload photo. Make sure the server is running.');
-  }
-  
-  // Reset file input so same file can be re-selected
+  } catch (err) { alert('Failed to upload photo.'); }
   event.target.value = '';
 }
 
 async function removePhoto() {
   if (!data.header.photo) return;
-  
-  // Delete from server if it's an uploaded file
   if (data.header.photo.startsWith('/uploads/')) {
-    try {
-      await fetch('/api/photo', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: data.header.photo })
-      });
-    } catch (err) {
-      console.error('Delete failed:', err);
-    }
+    try { await fetch('/api/photo', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: data.header.photo }) }); } catch (err) {}
   }
-  
   data.header.photo = '';
   updatePhotoPreview();
   render();
 }
 
 // ===================================================
-// TEMPLATE CHOOSER MODAL
+// MODALS
 // ===================================================
 
-let templateModalContext = null; // 'initial' | 'newVersion'
-
-function triggerImportBrowse() {
-  const input = document.getElementById('load-file');
-  if (input) input.click();
-}
-
-function showImportModal() {
-  const modal = document.getElementById('import-modal');
-  if (modal) {
-    modal.style.display = 'flex';
-  }
-}
-
-function hideImportModal() {
-  const modal = document.getElementById('import-modal');
-  if (modal) {
-    modal.style.display = 'none';
-  }
-}
-
-async function copyImportPrompt(buttonEl) {
-  const promptEl = document.getElementById('import-tip-prompt');
-  if (!promptEl) return;
-
-  const text = promptEl.value;
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      promptEl.focus();
-      promptEl.select();
-      document.execCommand('copy');
-      promptEl.setSelectionRange(0, 0);
-    }
-    if (buttonEl) {
-      const original = buttonEl.innerHTML;
-      buttonEl.classList.add('copied');
-      buttonEl.innerHTML = '<i class="fas fa-check"></i> Copied';
-      setTimeout(function () {
-        buttonEl.classList.remove('copied');
-        buttonEl.innerHTML = original;
-      }, 1600);
-    }
-  } catch (err) {
-    console.error(`${FE_LOG_PREFIX} Failed to copy import prompt`, err);
-    alert('Could not copy prompt. Please copy it manually.');
-  }
-}
-
-function initImportModal() {
-  const dropZone = document.getElementById('import-drop-zone');
-  if (!dropZone) return;
-
-  const preventDefaults = function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  ['dragenter', 'dragover'].forEach((evtName) => {
-    dropZone.addEventListener(evtName, function (event) {
-      preventDefaults(event);
-      dropZone.classList.add('drag-active');
-    });
-  });
-
-  ['dragleave', 'dragend', 'drop'].forEach((evtName) => {
-    dropZone.addEventListener(evtName, function (event) {
-      preventDefaults(event);
-      dropZone.classList.remove('drag-active');
-    });
-  });
-
-  dropZone.addEventListener('drop', function (event) {
-    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
-    handleImportFile(file, null);
-  });
-}
+let templateModalContext = null;
 
 function showTemplateModal(context) {
   templateModalContext = context;
   const modal = document.getElementById('template-modal');
-  if (modal) {
-    modal.style.display = 'flex';
-  }
+  if (modal) modal.style.display = 'flex';
 }
 
 function hideTemplateModal() {
   const modal = document.getElementById('template-modal');
-  if (modal) {
-    modal.style.display = 'none';
-  }
+  if (modal) modal.style.display = 'none';
   templateModalContext = null;
 }
 
 function selectTemplateFromModal(tpl) {
   if (templateModalContext === 'newVersion' && pendingNewVersionName) {
-    // Create the new version by cloning current data
     const name = pendingNewVersionName;
     allProfiles[name] = JSON.parse(JSON.stringify(data));
     currentProfileId = name;
     data = allProfiles[name];
-    
-    // Apply the chosen template
     ensureLayoutData().template = tpl;
-    
     updateVersionSelect();
     hideTemplateModal();
     switchVersion(name);
     pendingNewVersionName = null;
   } else {
-    // Initial launch or direct pick: just set template on current data
     ensureLayoutData().template = tpl;
     hideTemplateModal();
     updateTemplateUI();
     updateDensityUI();
     render();
   }
+}
+
+function triggerImportBrowse() { const input = document.getElementById('load-file'); if (input) input.click(); }
+function showImportModal() { const modal = document.getElementById('import-modal'); if (modal) modal.style.display = 'flex'; }
+function hideImportModal() { const modal = document.getElementById('import-modal'); if (modal) modal.style.display = 'none'; }
+
+async function copyImportPrompt(buttonEl) {
+  const promptEl = document.getElementById('import-tip-prompt');
+  if (!promptEl) return;
+  try {
+    await navigator.clipboard.writeText(promptEl.value);
+    if (buttonEl) {
+      const original = buttonEl.innerHTML;
+      buttonEl.classList.add('copied');
+      buttonEl.innerHTML = '<i class="fas fa-check"></i> Copied';
+      setTimeout(() => { buttonEl.classList.remove('copied'); buttonEl.innerHTML = original; }, 1600);
+    }
+  } catch (err) { alert('Could not copy prompt.'); }
+}
+
+function initImportModal() {
+  const dropZone = document.getElementById('import-drop-zone');
+  if (!dropZone) return;
+  const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); };
+  ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, e => { preventDefaults(e); dropZone.classList.add('drag-active'); }));
+  ['dragleave', 'dragend', 'drop'].forEach(n => dropZone.addEventListener(n, e => { preventDefaults(e); dropZone.classList.remove('drag-active'); }));
+  dropZone.addEventListener('drop', e => { const file = e.dataTransfer?.files?.[0]; handleImportFile(file, null); });
 }
